@@ -1,0 +1,21 @@
+name: PR Guardian CI
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  pr-guardian:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install deps
+        run: npm ci
+      - name: Run lint & tests
+        run: npm run lint || true
+      - name: Placeholder - call PR Guardian
+        run: echo "PR Guardian placeholder - real steps added later"
