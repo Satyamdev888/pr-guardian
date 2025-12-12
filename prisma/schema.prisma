@@ -27,7 +27,8 @@ model PullRequest {
   author    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  score       Int?     // Optional, because a new PR hasn't been scored yet
+  summary     String?  // We can store the text summary here
 comments  Comment[]
 }
 model Comment {
