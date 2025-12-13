@@ -31,7 +31,8 @@ export default async function Home() {
           <p className="text-4xl font-bold">{prs.length}</p>
         </div>
         <div className="border border-green-800 p-6 bg-green-900/10 rounded">
-          <h3 className="text-sm opacity-50 uppercase mb-2">High Scores (>80)</h3>
+          {/* FIX: Changed > to &gt; to allow building */}
+          <h3 className="text-sm opacity-50 uppercase mb-2">High Scores (&gt;80)</h3>
           <p className="text-4xl font-bold text-green-300">
             {prs.filter(p => (p.score || 0) > 80).length}
           </p>
