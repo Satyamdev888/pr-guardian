@@ -4,8 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL") // Matches the variable in your .env
+  directUrl = env("POSTGRES_URL_NON_POOLING") // Matches the variable in your .env
 }
 
 // 2. The Models (With BigInt fixes)

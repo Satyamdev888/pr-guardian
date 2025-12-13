@@ -1,54 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // Import our new helper
+import { prisma } from '@/lib/prisma';
+import { runGuardian } from '@/lib/guardian'; // 👈 Import the new service
 
 export async function POST(req: NextRequest) {
   try {
+    const payload = await req.json();
     const eventType = req.headers.get('x-github-event');
-    const body = await req.json();
 
-    console.log(`📥 Received Event: ${eventType}`);
+    console.log(`📨 Received event: ${eventType}`);
 
-    // We only care about PR events for now
     if (eventType === 'pull_request') {
-      const { action, pull_request, repository, sender } = body;
+      const { action, pull_request, repository } = payload;
+      
+      // Trigger on 'opened' (new PR) or 'synchronize' (new commit pushed)
+      if (action === 'opened' || action === 'synchronize') {
+        
+        // 1. Upsert Repository
+        const repo = await prisma.repository.upsert({
+          where: { githubId: repository.id },
+          update: { name: repository.full_name },
+          create: {
+            githubId: repository.id,
+            name: repository.full_name,
+            url: repository.html_url
+          }
+        });
 
-      console.log(`🚀 Processing PR #${pull_request.number}: ${action}`);
+        // 2. Upsert Pull Request
+        const pr = await prisma.pullRequest.upsert({
+          where: { githubId: pull_request.id },
+          update: {
+            title: pull_request.title,
+            status: pull_request.state,
+            updatedAt: new Date()
+          },
+          create: {
+            githubId: pull_request.id,
+            number: pull_request.number,
+            title: pull_request.title,
+            status: pull_request.state,
+            repoId: repo.id,
+            author: pull_request.user.login
+          }
+        });
 
-      // 1. Ensure the Repository exists in our DB
-      const repo = await prisma.repository.upsert({
-        where: { githubId: repository.id },
-        update: { name: repository.full_name },
-        create: {
-          githubId: repository.id,
-          name: repository.full_name,
-        },
-      });
+        console.log(`✅ Synced PR #${pr.number} to Database`);
 
-      // 2. Save or Update the Pull Request
-      const pr = await prisma.pullRequest.upsert({
-        where: { githubId: pull_request.id },
-        update: {
-          title: pull_request.title,
-          status: pull_request.state, // 'open', 'closed'
-          updatedAt: new Date(),
-        },
-        create: {
-          githubId: pull_request.id,
-          number: pull_request.number,
-          title: pull_request.title,
-          status: pull_request.state,
-          repoId: repo.id, // Link to the repo we just found/created
-          author: sender.login,
-        },
-      });
-
-      console.log(`✅ Database Updated: PR #${pr.number} is now "${pr.status}"`);
+        // 3. 🚀 TRIGGER THE AI (Fire and Forget)
+        // We do NOT await this, so the webhook responds "OK" immediately to GitHub.
+        runGuardian(pr.id); 
+      }
     }
 
-    return NextResponse.json({ message: 'Event processed' }, { status: 200 });
-
+    return NextResponse.json({ message: 'Webhook received' });
   } catch (error) {
-    console.error('❌ Database Error:', error);
-    return NextResponse.json({ error: 'Server Error' }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: 'Webhook failed' }, { status: 500 });
   }
 }
