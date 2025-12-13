@@ -11,33 +11,34 @@ datasource db {
 
 // 2. The Models (With BigInt fixes)
 model Repository {
-  id          Int      @id @default(autoincrement())
-  githubId    BigInt   @unique
-  name        String
-  pullRequests PullRequest[]
+  id           Int           @id @default(autoincrement())
+  githubId     Int           @unique
+  name         String
+  url          String // 👈 Added this (Fixes "url does not exist")
+  pullRequests PullRequest[] // 👈 Added this (Fixes "missing opposite relation")
 }
 
 model PullRequest {
-  id        Int      @id @default(autoincrement())
-  githubId  BigInt   @unique
-  number    Int
-  title     String
-  status    String
-  repoId    Int
+  id         Int        @id @default(autoincrement())
+  githubId   Int        @unique
+  number     Int
+  title      String
+  status     String
+  repoId     Int
   repository Repository @relation(fields: [repoId], references: [id])
-  author    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  score       Int?     // Optional, because a new PR hasn't been scored yet
-  summary     String?  // We can store the text summary here
-comments  Comment[]
+  author     String
+  score      Int?
+  summary    String?
+  comments   Comment[]
+  updatedAt  DateTime   @updatedAt
 }
+
 model Comment {
-  id        Int      @id @default(autoincrement())
-  githubId  BigInt   @unique
-  body      String   // The actual text of the comment
-  author    String   // e.g., "coderabbitai"
-  prId      Int
+  id          Int         @id @default(autoincrement())
+  githubId    BigInt      @unique
+  body        String // The actual text of the comment
+  author      String // e.g., "coderabbitai"
+  prId        Int
   pullRequest PullRequest @relation(fields: [prId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt   DateTime    @default(now())
 }
