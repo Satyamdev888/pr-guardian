@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { analyzePR } from '@/lib/gemini';
+import { postComment } from '@/lib/github'; // 👈 Import the new reporter
 
 export async function POST(req: NextRequest) {
   try {
     const { prId } = await req.json();
 
-    // 1. Fetch PR
+    // 1. Fetch PR AND the Repository details (so we know owner/name)
     const pr = await prisma.pullRequest.findUnique({
       where: { id: prId },
-      include: { comments: true }
+      include: { 
+        comments: true,
+        repository: true // 👈 We need this now!
+      }
     });
 
     if (!pr) return NextResponse.json({ error: 'PR not found' }, { status: 404 });
@@ -22,7 +26,7 @@ export async function POST(req: NextRequest) {
     const analysis = await analyzePR(dummyDiff, commentTexts);
 
     if (analysis) {
-      // 4. SAVE the result to Database! 💾
+      // 4. Save to DB
       await prisma.pullRequest.update({
         where: { id: prId },
         data: {
@@ -30,7 +34,23 @@ export async function POST(req: NextRequest) {
           summary: analysis.summary,
         }
       });
-      console.log(`✅ Saved Score (${analysis.score}) for PR #${pr.number}`);
+
+      // 5. POST TO GITHUB! 📢
+      // We need to split "Satyamdev888/pr-guardian" into "Satyamdev888" and "pr-guardian"
+      const [owner, repoName] = pr.repository.name.split('/');
+      
+      const message = `
+### 🛡️ PR Guardian Report
+**Score:** ${analysis.score}/100 ${analysis.score > 80 ? '🟢' : '🔴'}
+
+**Summary:**
+${analysis.summary}
+
+**Key Suggestions:**
+${analysis.suggestions.map((s: string) => `- ${s}`).join('\n')}
+      `;
+
+      await postComment(owner, repoName, pr.number, message);
     }
 
     return NextResponse.json(analysis);
